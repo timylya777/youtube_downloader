@@ -11,7 +11,12 @@ echo 2. Создание папки bin если она отсутствует..
 if not exist "bin" mkdir "bin"
 
 echo.
-echo 3. Сборка проекта с помощью PyInstaller...
+echo 3. Скачивание FFmpeg для встраивания...
+python -c "from app.downloader import download_ffmpeg; download_ffmpeg()"
+
+echo.
+echo 4. Сборка проекта с помощью PyInstaller...
+set PYTHONUTF8=1
 pyinstaller --noconfirm --onefile --windowed --add-data "bin;bin" --add-data "static;static" main.py
 
 echo.
