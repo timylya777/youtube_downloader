@@ -16,11 +16,45 @@ if sys.platform.startswith('win'):
         pass
         
     try:
-        # Force stdout/stderr streams to write UTF-8 encoded text
-        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
-        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+        # Force stdout/stderr streams to write UTF-8 encoded text if they exist
+        if sys.stdout is not None:
+            sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+        if sys.stderr is not None:
+            sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
     except Exception:
         pass
+
+# Safe stream wrapper for windowed/noconsole mode where stdout/stderr are None
+class SafeStream:
+    def __init__(self, original):
+        self.original = original
+        self.encoding = getattr(original, 'encoding', 'utf-8') or 'utf-8'
+        
+    def write(self, data):
+        if self.original:
+            try:
+                self.original.write(data)
+            except Exception:
+                pass
+                
+    def flush(self):
+        if self.original and hasattr(self.original, 'flush'):
+            try:
+                self.original.flush()
+            except Exception:
+                pass
+                
+    def isatty(self):
+        if self.original and hasattr(self.original, 'isatty'):
+            try:
+                return self.original.isatty()
+            except Exception:
+                pass
+        return False
+
+# Wrap streams to prevent crashes in libraries (like uvicorn/logging) that expect isatty()
+sys.stdout = SafeStream(sys.stdout)
+sys.stderr = SafeStream(sys.stderr)
 
 def open_browser():
     # Wait for the server to start up
