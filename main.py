@@ -61,7 +61,7 @@ def open_browser():
     time.sleep(1.2)
     url = "http://127.0.0.1:8088"
     print(f"Opening web interface: {url}")
-    webbrowser.open(url)
+    # webbrowser.open(url)
 
 if __name__ == '__main__':
     # Add project root to path
