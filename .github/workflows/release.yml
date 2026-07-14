@@ -43,6 +43,10 @@ jobs:
       run: |
         mv dist/main.exe dist/youtube_downloader.exe
         
+    - name: Sign Executable
+      run: |
+        powershell -Command "$cert = New-SelfSignedCertificate -Type CodeSigningCert -Subject 'CN=YouTubeDownloader' -CertStoreLocation 'Cert:\CurrentUser\My'; Set-AuthenticodeSignature -FilePath 'dist/youtube_downloader.exe' -Certificate $cert"
+        
     - name: Release Latest on Main Push
       if: github.ref == 'refs/heads/main'
       uses: softprops/action-gh-release@v2
