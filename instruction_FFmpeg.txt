@@ -1,0 +1,48 @@
+## Инструкция для разработчика: Вшивание FFmpeg в Windows-сборку (PyInstaller)
+Чтобы конечному пользователю не нужно было скачивать FFmpeg и вручную прописывать его в системные переменные (PATH), необходимо упаковать исполняемые файлы FFmpeg прямо внутрь .exe файла приложения с помощью PyInstaller.
+## 1. Подготовка файлов FFmpeg
+
+   1. Скачайте статическую сборку FFmpeg для Windows (нужны файлы ffmpeg.exe и ffprobe.exe).
+   2. Создайте в корне проекта папку bin/ и положите эти два файла туда.
+
+## 2. Настройка динамического определения путей в коде (Python)
+Когда PyInstaller запускает скомпилированное приложение, он распаковывает все вложенные ресурсы во временную папку, путь к которой хранится в переменной sys._MEIPASS.
+В коде инициализации приложения необходимо динамически определять путь к FFmpeg, чтобы библиотека yt-dlp знала, откуда его вызывать:
+
+import osimport sys
+def get_ffmpeg_path():
+    # Если приложение запущено из .exe (сборка PyInstaller)
+    if getattr(sys, 'frozen', False):
+        base_path = sys._MEIPASS
+    else:
+        # Если запущено как обычный скрипт .py
+        base_path = os.path.dirname(os.path.abspath(__file__))
+    
+    # Путь к папке bin с ffmpeg.exe
+    return os.path.join(base_path, 'bin')
+
+## 3. Передача пути в yt-dlp
+При настройке параметров для yt-dlp обязательно укажите полученный путь в ключе ffmpeg_location:
+
+ffmpeg_dir = get_ffmpeg_path()
+ydl_opts = {
+    'format': 'bestaudio/best',
+    'ffmpeg_location': ffmpeg_dir,  # Указываем yt-dlp точное местоположение ffmpeg.exe
+    'postprocessors': [{
+        'key': 'FFmpegExtractAudio',
+        'preferredcodec': 'mp3',
+        'preferredquality': '320',
+    }],
+}
+
+## 4. Команда сборки через PyInstaller
+Чтобы PyInstaller включил папку bin/ с файлами ffmpeg.exe и ffprobe.exe в итоговый исполняемый файл, используйте флаг --add-data.
+Синтаксис для Windows (разделитель — точка с запятой ;):
+
+pyinstaller --noconfirm --onefile --windowed --add-data "bin;bin" main.py
+
+Если используется файл конфигурации main.spec, добавьте папку в список datas:
+
+datas=[('bin', 'bin')]
+
+После компиляции приложение станет полностью автономным, а yt-dlp будет успешно конвертировать аудио в MP3 на любом компьютере с Windows "из коробки".

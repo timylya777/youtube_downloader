@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Playlist Audio Downloader</title>
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Main Style sheet -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar / Navigation -->
+        <aside class="sidebar">
+            <div class="brand">
+                <i class="fa-brands fa-youtube logo-icon"></i>
+                <div class="brand-text">
+                    <h1>YT Downloader</h1>
+                    <span>v2.0 Premium</span>
+                </div>
+            </div>
+            
+            <nav class="nav-menu">
+                <button class="nav-item active" id="tab-btn-downloader" onclick="switchTab('downloader')">
+                    <i class="fa-solid fa-cloud-arrow-down"></i> Загрузчик
+                </button>
+                <button class="nav-item" id="tab-btn-history" onclick="switchTab('history')">
+                    <i class="fa-solid fa-clock-rotate-left"></i> История
+                </button>
+            </nav>
+
+            <!-- FFmpeg status box -->
+            <div class="ffmpeg-status-box" id="ffmpeg-status-container">
+                <div class="status-header">
+                    <span class="status-label">Статус FFmpeg:</span>
+                    <span class="status-badge checking" id="ffmpeg-badge">
+                        <i class="fa-solid fa-spinner fa-spin"></i> Проверка
+                    </span>
+                </div>
+                <p class="status-desc" id="ffmpeg-desc">Проверяем наличие FFmpeg...</p>
+                <button class="btn btn-sm btn-outline-primary hidden" id="ffmpeg-download-btn" onclick="startFFmpegDownload()">
+                    <i class="fa-solid fa-download"></i> Установить FFmpeg
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Downloader Tab -->
+            <section id="tab-downloader" class="tab-content active">
+                <div class="section-header">
+                    <h2>Загрузка аудио из плейлистов YouTube</h2>
+                    <p>Вставьте ссылку на плейлист, программа автоматически отфильтрует треки и скачает их в MP3 320 kbps.</p>
+                </div>
+
+                <!-- Input Panel -->
+                <div class="panel input-panel">
+                    <div class="form-group url-group">
+                        <label for="playlist-url"><i class="fa-brands fa-youtube"></i> Ссылка на плейлист YouTube</label>
+                        <div class="input-with-action">
+                            <input type="text" id="playlist-url" placeholder="https://www.youtube.com/playlist?list=..." value="">
+                            <button class="btn btn-primary" id="load-playlist-btn" onclick="loadPlaylist()">
+                                <i class="fa-solid fa-magnifying-glass"></i> Анализировать
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="form-group path-group">
+                        <label for="save-dir"><i class="fa-solid fa-folder-open"></i> Папка для сохранения MP3</label>
+                        <div class="input-with-action">
+                            <input type="text" id="save-dir" placeholder="Путь к папке на компьютере...">
+                            <button class="btn btn-secondary" onclick="browseFolder()">
+                                <i class="fa-solid fa-ellipsis"></i> Обзор
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Playlist Info & Track Selection -->
+                <div class="playlist-section hidden" id="playlist-section">
+                    <div class="playlist-meta">
+                        <h3 id="playlist-title-display">Название плейлиста</h3>
+                        <div class="selection-controls">
+                            <button class="btn btn-sm btn-outline" onclick="selectAll(true)">
+                                <i class="fa-solid fa-square-check"></i> Выбрать все
+                            </button>
+                            <button class="btn btn-sm btn-outline" onclick="selectAll(false)">
+                                <i class="fa-solid fa-square"></i> Снять выделение
+                            </button>
+                            <span class="selection-counter" id="selection-counter">Выбрано: 0 из 0</span>
+                        </div>
+                    </div>
+
+                    <!-- Track list wrapper -->
+                    <div class="track-list" id="track-list">
+                        <!-- Tracks will be dynamically generated here -->
+                    </div>
+
+                    <!-- Bottom Action Bar -->
+                    <div class="action-bar">
+                        <button class="btn btn-success btn-lg btn-glow" id="start-download-btn" onclick="startDownload()">
+                            <i class="fa-solid fa-circle-down"></i> Скачать выбранное аудио (.MP3)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Progress Section -->
+                <div class="progress-section hidden" id="progress-section">
+                    <div class="panel progress-panel">
+                        <div class="progress-header">
+                            <h3 id="progress-title">Скачивание плейлиста...</h3>
+                            <span class="progress-ratio" id="progress-ratio">0 / 0</span>
+                        </div>
+                        <div class="progress-bar-wrapper">
+                            <div class="progress-bar" id="global-progress-bar" style="width: 0%"></div>
+                        </div>
+                        <div class="progress-details">
+                            <span id="current-track-name">Инициализация...</span>
+                            <span class="pulse-indicator" id="download-speed">0 B/s</span>
+                        </div>
+                    </div>
+
+                    <!-- Live progress list -->
+                    <div class="live-queue panel">
+                        <h4>Очередь загрузки</h4>
+                        <div class="queue-list" id="queue-list">
+                            <!-- Live status for each downloading track -->
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- History Tab -->
+            <section id="tab-history" class="tab-content">
+                <div class="section-header">
+                    <div class="header-with-actions">
+                        <div>
+                            <h2>История загрузок</h2>
+                            <p>Список успешно скачанных музыкальных композиций.</p>
+                        </div>
+                        <button class="btn btn-danger btn-sm" onclick="clearAllHistory()">
+                            <i class="fa-solid fa-trash-can"></i> Очистить историю
+                        </button>
+                    </div>
+                </div>
+
+                <div class="panel history-panel">
+                    <div class="history-empty" id="history-empty">
+                        <i class="fa-solid fa-music-slash"></i>
+                        <p>Вы еще ничего не скачали. Все успешно скачанные треки появятся здесь.</p>
+                    </div>
+                    <div class="history-list hidden" id="history-list">
+                        <!-- History items will be dynamically generated here -->
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Alternative search modal -->
+    <div class="modal-overlay hidden" id="search-modal">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3>Поиск оригинального трека</h3>
+                <button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <p>Мы ищем оригинал для: <strong id="modal-track-title">Трек</strong></p>
+                <div class="modal-loader" id="modal-loader">
+                    <i class="fa-solid fa-circle-notch fa-spin"></i> Выполняем поиск на YouTube...
+                </div>
+                <div class="search-results" id="search-results">
+                    <!-- Search results will show up here -->
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- JavaScript logic -->
+    <script src="app.js"></script>
+</body>
+</html>
