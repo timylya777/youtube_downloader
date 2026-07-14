@@ -402,6 +402,7 @@ async function startDownload() {
             title: t.title
         }));
         
+    try {
         const formatVal = document.getElementById('format-select').value;
         const qualityVal = document.getElementById('quality-select').value;
         
