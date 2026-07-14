@@ -231,7 +231,10 @@ function renderPlaylist() {
                     <input type="text" class="track-input" id="track-name-${track.id}" placeholder="Название" value="${track.track || ''}" onchange="updateTrackMetadata('${track.id}')">
                 </div>
             </div>
-            <div class="track-duration">${track.duration_str}</div>
+            <div class="track-duration" style="text-align: right; min-width: 90px;">
+                <div>${track.duration_str}</div>
+                <div class="track-size" id="size-${track.id}" style="margin-left: 0; margin-top: 4px; display: inline-block;">~0.0 МБ</div>
+            </div>
             <div class="track-actions">
                 ${track.is_slowed ? `
                 <button class="btn btn-sm btn-outline-primary" onclick="findOriginal('${track.id}', '${track.title}')">
@@ -284,11 +287,55 @@ function selectAll(val) {
     updateSelectionCounter();
 }
 
+// Estimate track file size based on duration, format and quality
+function estimateFileSize(durationSec, format, quality) {
+    if (!durationSec) return 0;
+    
+    let bitrateKbps = 320; // default MP3
+    if (format === 'mp3') {
+        bitrateKbps = parseInt(quality) || 320;
+    } else { // mp4
+        if (quality === '1080p') bitrateKbps = 3500;
+        else if (quality === '720p') bitrateKbps = 2000;
+        else if (quality === '480p') bitrateKbps = 1000;
+        else if (quality === '360p') bitrateKbps = 500;
+    }
+    
+    return (durationSec * bitrateKbps * 1000) / 8;
+}
+
+function formatSize(bytes) {
+    if (!bytes || bytes === 0) return '0.0 МБ';
+    const mb = bytes / (1024 * 1024);
+    return `${mb.toFixed(1)} МБ`;
+}
+
 // Update selection counter display
 function updateSelectionCounter() {
     const count = selectedTrackIds.size;
     const total = playlistTracks.length;
-    document.getElementById('selection-counter').innerText = `Выбрано: ${count} из ${total}`;
+    
+    const formatSelect = document.getElementById('format-select');
+    const qualitySelect = document.getElementById('quality-select');
+    let totalSelectedSize = 0;
+    
+    if (formatSelect && qualitySelect) {
+        const format = formatSelect.value;
+        const quality = qualitySelect.value;
+        
+        playlistTracks.forEach(track => {
+            const sizeBytes = estimateFileSize(track.duration, format, quality);
+            const sizeEl = document.getElementById(`size-${track.id}`);
+            if (sizeEl) {
+                sizeEl.innerText = `~${formatSize(sizeBytes)}`;
+            }
+            if (selectedTrackIds.has(track.id)) {
+                totalSelectedSize += sizeBytes;
+            }
+        });
+    }
+    
+    document.getElementById('selection-counter').innerText = `Выбрано: ${count} из ${total} (Общий вес: ~${formatSize(totalSelectedSize)})`;
 }
 
 // Search for original version modal
@@ -405,6 +452,7 @@ async function startDownload() {
     try {
         const formatVal = document.getElementById('format-select').value;
         const qualityVal = document.getElementById('quality-select').value;
+        const archiveVal = document.getElementById('zip-archive-checkbox').checked;
         
         const res = await fetch('/api/start-download', {
             method: 'POST',
@@ -413,7 +461,9 @@ async function startDownload() {
                 tracks: tracksToDownload,
                 save_dir: saveDir,
                 format_type: formatVal,
-                quality: qualityVal
+                quality: qualityVal,
+                playlist_title: currentPlaylistTitle,
+                archive: archiveVal
             })
         });
         
@@ -644,4 +694,6 @@ function onFormatChange() {
             <option value="360p">360p (Низкое)</option>
         `;
     }
+    
+    updateSelectionCounter();
 }

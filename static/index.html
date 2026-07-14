@@ -91,13 +91,21 @@
                         </div>
                         <div class="form-group quality-group">
                             <label for="quality-select"><i class="fa-solid fa-sliders"></i> Качество</label>
-                            <select id="quality-select" class="form-select">
+                            <select id="quality-select" class="form-select" onchange="updateSelectionCounter()">
                                 <option value="320">320 kbps (Наилучшее)</option>
                                 <option value="256">256 kbps (Высокое)</option>
                                 <option value="192">192 kbps (Среднее)</option>
                                 <option value="128">128 kbps (Стандартное)</option>
                             </select>
                         </div>
+                    </div>
+
+                    <!-- Zip Archive Option -->
+                    <div class="form-group zip-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="zip-archive-checkbox">
+                            <span><i class="fa-solid fa-file-zipper"></i> Упаковать все файлы в ZIP архив</span>
+                        </label>
                     </div>
                 </div>
 

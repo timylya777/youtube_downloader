@@ -63,6 +63,8 @@ class DownloadRequest(BaseModel):
     save_dir: str
     format_type: str = "mp3"
     quality: str = "320"
+    playlist_title: str = "YouTube Downloads"
+    archive: bool = False
 
 # Helper to open folder dialog in background thread
 def ask_directory_dialog(initial_dir: str = "") -> str:
@@ -81,8 +83,38 @@ def ask_directory_dialog(initial_dir: str = "") -> str:
         print(f"Error opening folder dialog: {e}")
         return ""
 
+# Helper to package downloaded files into a zip archive
+def create_zip_archive(save_dir: str, playlist_title: str, file_paths: List[str]) -> str:
+    import zipfile
+    from app.downloader import sanitize_filename
+    safe_title = sanitize_filename(playlist_title) or "playlist_downloads"
+    zip_filename = f"{safe_title}.zip"
+    zip_path = os.path.join(save_dir, zip_filename)
+    
+    # Remove existing zip if any
+    if os.path.exists(zip_path):
+        try:
+            os.remove(zip_path)
+        except Exception:
+            pass
+            
+    with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        for file_path in file_paths:
+            if os.path.exists(file_path):
+                zipf.write(file_path, os.path.basename(file_path))
+                
+    # Delete individual files after successful zipping
+    for file_path in file_paths:
+        if os.path.exists(file_path) and file_path != zip_path:
+            try:
+                os.remove(file_path)
+            except Exception:
+                pass
+                
+    return zip_path
+
 # Background downloader queue runner
-async def run_download_queue(tracks: List[TrackItem], save_dir: str, format_type: str, quality: str):
+async def run_download_queue(tracks: List[TrackItem], save_dir: str, format_type: str, quality: str, playlist_title: str, archive: bool):
     global download_state
     download_state.is_running = True
     download_state.total_tracks = len(tracks)
@@ -106,6 +138,9 @@ async def run_download_queue(tracks: List[TrackItem], save_dir: str, format_type
         }
         
     loop = asyncio.get_event_loop()
+    
+    downloaded_filepaths = []
+    resolved_metadata = {} # map of track_id -> (resolved_artist, resolved_track, final_path)
     
     for idx, track in enumerate(tracks):
         download_state.current_index = idx + 1
@@ -146,6 +181,9 @@ async def run_download_queue(tracks: List[TrackItem], save_dir: str, format_type
             resolved_artist = result["artist"]
             resolved_track = result["track"]
             
+            downloaded_filepaths.append(final_path)
+            resolved_metadata[track_id] = (resolved_artist, resolved_track, final_path)
+            
             # Update status with resolved metadata
             download_state.tracks_status[track_id].update({
                 'status': 'completed',
@@ -155,7 +193,59 @@ async def run_download_queue(tracks: List[TrackItem], save_dir: str, format_type
             })
             download_state.completed_tracks += 1
             
-            # Save to history database with resolved metadata
+        except Exception as e:
+            error_msg = str(e)
+            download_state.tracks_status[track_id].update({
+                'status': 'failed',
+                'error': error_msg
+            })
+            download_state.failed_tracks += 1
+            download_state.errors.append(f"Ошибка {track.title}: {error_msg}")
+            
+    # Post-processing: Package into ZIP archive if requested
+    final_save_path_map = {}
+    if archive and downloaded_filepaths:
+        try:
+            # Update state messages
+            for track_id in download_state.tracks_status:
+                if download_state.tracks_status[track_id]['status'] == 'completed':
+                    download_state.tracks_status[track_id].update({
+                        'status': 'converting',
+                        'eta': 'Упаковка в ZIP...'
+                    })
+                    
+            zip_path = await loop.run_in_executor(
+                None,
+                create_zip_archive,
+                save_dir,
+                playlist_title,
+                downloaded_filepaths
+            )
+            
+            # Map all completed tracks to the zip path
+            for track_id in download_state.tracks_status:
+                if download_state.tracks_status[track_id]['status'] == 'completed':
+                    final_save_path_map[track_id] = zip_path
+                    download_state.tracks_status[track_id].update({
+                        'status': 'completed',
+                        'eta': 'В архиве'
+                    })
+        except Exception as e:
+            download_state.errors.append(f"Не удалось создать архив: {str(e)}")
+            # Fallback to individual file paths
+            for track_id, info in resolved_metadata.items():
+                final_save_path_map[track_id] = info[2] # final_path
+    else:
+        # Map to individual file paths
+        for track_id, info in resolved_metadata.items():
+            final_save_path_map[track_id] = info[2] # final_path
+            
+    # Add to history
+    for track in tracks:
+        track_id = track.id
+        if track_id in resolved_metadata and download_state.tracks_status[track_id]['status'] == 'completed':
+            resolved_artist, resolved_track, _ = resolved_metadata[track_id]
+            final_path = final_save_path_map.get(track_id)
             await loop.run_in_executor(
                 None,
                 add_to_history,
@@ -166,15 +256,6 @@ async def run_download_queue(tracks: List[TrackItem], save_dir: str, format_type
                 format_type,
                 quality
             )
-            
-        except Exception as e:
-            error_msg = str(e)
-            download_state.tracks_status[track_id].update({
-                'status': 'failed',
-                'error': error_msg
-            })
-            download_state.failed_tracks += 1
-            download_state.errors.append(f"Ошибка {track.title}: {error_msg}")
             
     download_state.is_running = False
 
@@ -223,7 +304,9 @@ def start_download(request: DownloadRequest, background_tasks: BackgroundTasks):
         request.tracks,
         request.save_dir,
         request.format_type,
-        request.quality
+        request.quality,
+        request.playlist_title,
+        request.archive
     )
     return {"status": "started"}
 
