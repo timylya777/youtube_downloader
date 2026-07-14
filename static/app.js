@@ -318,9 +318,10 @@ function updateSelectionCounter() {
     const formatSelect = document.getElementById('format-select');
     const qualitySelect = document.getElementById('quality-select');
     let totalSelectedSize = 0;
+    let format = 'mp3';
     
     if (formatSelect && qualitySelect) {
-        const format = formatSelect.value;
+        format = formatSelect.value;
         const quality = qualitySelect.value;
         
         playlistTracks.forEach(track => {
@@ -336,6 +337,13 @@ function updateSelectionCounter() {
     }
     
     document.getElementById('selection-counter').innerText = `Выбрано: ${count} из ${total} (Общий вес: ~${formatSize(totalSelectedSize)})`;
+    
+    // Update button text and total size (final sum)
+    const btn = document.getElementById('start-download-btn');
+    if (btn) {
+        const typeStr = format === 'mp3' ? 'аудио (.MP3)' : 'видео (.MP4)';
+        btn.innerHTML = `<i class="fa-solid fa-circle-down"></i> Скачать выбранное ${typeStr} (${count} шт. ~${formatSize(totalSelectedSize)})`;
+    }
 }
 
 // Search for original version modal
