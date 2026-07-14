@@ -70,6 +70,9 @@ async function checkFFmpegStatus() {
         }
     } catch (e) {
         console.error("FFmpeg check failed", e);
+        badge.className = 'status-badge missing';
+        badge.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Оффлайн';
+        desc.innerHTML = 'Не удалось подключиться к локальному серверу. Пожалуйста, убедитесь, что сервер запущен.';
     }
 }
 
