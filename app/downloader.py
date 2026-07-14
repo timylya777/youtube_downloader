@@ -266,7 +266,7 @@ def search_alternatives(original_title: str) -> List[Dict[str, Any]]:
             print(f"Error searching alternatives: {e}")
             return []
 
-def download_track(video_url: str, save_dir: str, artist: str, track: str, progress_fn: Callable[[Dict[str, Any]], None]) -> Dict[str, str]:
+def download_track(video_url: str, save_dir: str, artist: str, track: str, format_type: str, quality: str, progress_fn: Callable[[Dict[str, Any]], None]) -> Dict[str, str]:
     ffmpeg_dir = get_ffmpeg_path()
     
     # Ensure save directory exists
@@ -311,24 +311,46 @@ def download_track(video_url: str, save_dir: str, artist: str, track: str, progr
         elif d['status'] == 'finished':
             status_info.update({
                 'percent': 100.0,
-                'msg': 'Конвертация в MP3...'
+                'msg': 'Обработка/Конвертация...'
             })
         progress_fn(status_info)
 
-    ydl_opts = {
-        'format': 'bestaudio/best',
-        'ffmpeg_location': ffmpeg_dir,
-        'outtmpl': temp_template,
-        'progress_hooks': [ytdl_progress_hook],
-        'postprocessors': [{
-            'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'mp3',
-            'preferredquality': '320', # 320kbps as per requirements
-        }],
-        # Quiet output to not pollute console
-        'quiet': True,
-        'no_warnings': True,
-    }
+    # Build ydl_opts based on format and quality
+    if format_type == "mp4":
+        height = "1080" # default fallback
+        if "1080" in quality:
+            height = "1080"
+        elif "720" in quality:
+            height = "720"
+        elif "480" in quality:
+            height = "480"
+        elif "360" in quality:
+            height = "360"
+            
+        ydl_opts = {
+            'format': f'bestvideo[height<={height}]+bestaudio/best[height<={height}]',
+            'ffmpeg_location': ffmpeg_dir,
+            'outtmpl': temp_template,
+            'progress_hooks': [ytdl_progress_hook],
+            'merge_output_format': 'mp4',
+            'quiet': True,
+            'no_warnings': True,
+        }
+    else: # mp3
+        kbps = quality.replace("kbps", "").strip()
+        ydl_opts = {
+            'format': 'bestaudio/best',
+            'ffmpeg_location': ffmpeg_dir,
+            'outtmpl': temp_template,
+            'progress_hooks': [ytdl_progress_hook],
+            'postprocessors': [{
+                'key': 'FFmpegExtractAudio',
+                'preferredcodec': 'mp3',
+                'preferredquality': kbps,
+            }],
+            'quiet': True,
+            'no_warnings': True,
+        }
     
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         # Extract info (this downloads too)
@@ -355,7 +377,8 @@ def download_track(video_url: str, save_dir: str, artist: str, track: str, progr
         if not final_filename:
             final_filename = sanitize_filename(info.get('title') or video_id)
             
-        final_filepath = os.path.join(save_dir, f"{final_filename}.mp3")
+        ext = "mp3" if format_type == "mp3" else "mp4"
+        final_filepath = os.path.join(save_dir, f"{final_filename}.{ext}")
         
         # Remove existing file if any
         if os.path.exists(final_filepath):
@@ -364,20 +387,19 @@ def download_track(video_url: str, save_dir: str, artist: str, track: str, progr
             except Exception:
                 pass
         
-        # After conversion, the file will be saved as {video_id}.mp3
-        downloaded_mp3 = os.path.join(save_dir, f"{video_id}.mp3")
+        # After conversion, the file will be saved as {video_id}.{ext}
+        downloaded_output = os.path.join(save_dir, f"{video_id}.{ext}")
         
-        # Rename it to our customized "Artist - Track.mp3"
-        if os.path.exists(downloaded_mp3):
-            os.replace(downloaded_mp3, final_filepath)
+        # Rename it to our customized "Artist - Track.{ext}"
+        if os.path.exists(downloaded_output):
+            os.replace(downloaded_output, final_filepath)
         else:
-            # Sometimes it might not have been converted, check if the output exists or find it
             if not os.path.exists(final_filepath):
-                potential_file = os.path.join(save_dir, f"{video_id}.mp3")
+                potential_file = os.path.join(save_dir, f"{video_id}.{ext}")
                 if os.path.exists(potential_file):
                     os.replace(potential_file, final_filepath)
                 else:
-                    raise Exception("Файл MP3 не был создан конвертером.")
+                    raise Exception(f"Файл {ext.upper()} не был создан конвертером.")
                     
         return {
             "filepath": final_filepath,

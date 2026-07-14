@@ -61,6 +61,8 @@ class TrackItem(BaseModel):
 class DownloadRequest(BaseModel):
     tracks: List[TrackItem]
     save_dir: str
+    format_type: str = "mp3"
+    quality: str = "320"
 
 # Helper to open folder dialog in background thread
 def ask_directory_dialog(initial_dir: str = "") -> str:
@@ -80,7 +82,7 @@ def ask_directory_dialog(initial_dir: str = "") -> str:
         return ""
 
 # Background downloader queue runner
-async def run_download_queue(tracks: List[TrackItem], save_dir: str):
+async def run_download_queue(tracks: List[TrackItem], save_dir: str, format_type: str, quality: str):
     global download_state
     download_state.is_running = True
     download_state.total_tracks = len(tracks)
@@ -135,6 +137,8 @@ async def run_download_queue(tracks: List[TrackItem], save_dir: str):
                 save_dir,
                 track.artist,
                 track.track,
+                format_type,
+                quality,
                 progress_callback
             )
             
@@ -158,7 +162,9 @@ async def run_download_queue(tracks: List[TrackItem], save_dir: str):
                 resolved_track,
                 resolved_artist,
                 track.url,
-                final_path
+                final_path,
+                format_type,
+                quality
             )
             
         except Exception as e:
@@ -212,7 +218,13 @@ def start_download(request: DownloadRequest, background_tasks: BackgroundTasks):
     if download_state.is_running:
         raise HTTPException(status_code=400, detail="Загрузка уже запущена.")
     
-    background_tasks.add_task(run_download_queue, request.tracks, request.save_dir)
+    background_tasks.add_task(
+        run_download_queue,
+        request.tracks,
+        request.save_dir,
+        request.format_type,
+        request.quality
+    )
     return {"status": "started"}
 
 @app.get("/api/download-status")

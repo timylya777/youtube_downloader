@@ -399,13 +399,17 @@ async function startDownload() {
             title: t.title
         }));
         
-    try {
+        const formatVal = document.getElementById('format-select').value;
+        const qualityVal = document.getElementById('quality-select').value;
+        
         const res = await fetch('/api/start-download', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 tracks: tracksToDownload,
-                save_dir: saveDir
+                save_dir: saveDir,
+                format_type: formatVal,
+                quality: qualityVal
             })
         });
         
@@ -559,10 +563,14 @@ async function loadHistory() {
             data.forEach(item => {
                 const card = document.createElement('div');
                 card.className = 'history-card';
+                const formatDisplay = (item.format || 'mp3').toUpperCase();
+                const qualityDisplay = item.format === 'mp4' ? item.quality : `${item.quality} kbps`;
+                
                 card.innerHTML = `
                     <div class="history-details">
                         <h4>${item.artist} - ${item.title}</h4>
                         <div class="history-meta">
+                            <span><i class="${item.format === 'mp4' ? 'fa-solid fa-file-video' : 'fa-solid fa-file-audio'}"></i> ${formatDisplay} (${qualityDisplay})</span>
                             <span><i class="fa-solid fa-calendar-day"></i> ${item.download_date}</span>
                             <span><i class="fa-solid fa-folder"></i> ${item.save_path}</span>
                             <span><a href="${item.url}" target="_blank" style="color: var(--primary); text-decoration: none;"><i class="fa-brands fa-youtube"></i> Ссылка</a></span>
@@ -605,5 +613,31 @@ async function clearAllHistory() {
         } catch (e) {
             console.error("Failed to clear history", e);
         }
+    }
+}
+
+// Format switch handler
+function onFormatChange() {
+    const formatSelect = document.getElementById('format-select');
+    const qualitySelect = document.getElementById('quality-select');
+    const format = formatSelect.value;
+    
+    // Clear old options
+    qualitySelect.innerHTML = '';
+    
+    if (format === 'mp3') {
+        qualitySelect.innerHTML = `
+            <option value="320">320 kbps (Наилучшее)</option>
+            <option value="256">256 kbps (Высокое)</option>
+            <option value="192">192 kbps (Среднее)</option>
+            <option value="128">128 kbps (Стандартное)</option>
+        `;
+    } else if (format === 'mp4') {
+        qualitySelect.innerHTML = `
+            <option value="1080p">1080p (Full HD)</option>
+            <option value="720p">720p (HD)</option>
+            <option value="480p">480p (Среднее)</option>
+            <option value="360p">360p (Низкое)</option>
+        `;
     }
 }

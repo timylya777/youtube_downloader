@@ -71,12 +71,32 @@
                     </div>
 
                     <div class="form-group path-group">
-                        <label for="save-dir"><i class="fa-solid fa-folder-open"></i> Папка для сохранения MP3</label>
+                        <label for="save-dir"><i class="fa-solid fa-folder-open"></i> Папка для сохранения</label>
                         <div class="input-with-action">
                             <input type="text" id="save-dir" placeholder="Путь к папке на компьютере...">
                             <button class="btn btn-secondary" onclick="browseFolder()">
                                 <i class="fa-solid fa-ellipsis"></i> Обзор
                             </button>
+                        </div>
+                    </div>
+
+                    <!-- Format & Quality Selection -->
+                    <div class="format-quality-row">
+                        <div class="form-group format-group">
+                            <label for="format-select"><i class="fa-solid fa-file-video"></i> Формат скачивания</label>
+                            <select id="format-select" class="form-select" onchange="onFormatChange()">
+                                <option value="mp3">Аудио (MP3)</option>
+                                <option value="mp4">Видео (MP4)</option>
+                            </select>
+                        </div>
+                        <div class="form-group quality-group">
+                            <label for="quality-select"><i class="fa-solid fa-sliders"></i> Качество</label>
+                            <select id="quality-select" class="form-select">
+                                <option value="320">320 kbps (Наилучшее)</option>
+                                <option value="256">256 kbps (Высокое)</option>
+                                <option value="192">192 kbps (Среднее)</option>
+                                <option value="128">128 kbps (Стандартное)</option>
+                            </select>
                         </div>
                     </div>
                 </div>
